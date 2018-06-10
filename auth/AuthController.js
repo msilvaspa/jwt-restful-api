@@ -15,10 +15,10 @@ router.post('/register', (req, res) => {
   User.create({
     name: req.body.name,
     email: req.body.email,
-    password: req.body.password
+    password: hashedPassword
   },
     (err, user) => {
-      if (err) res.status(500).send("There was a problem registering the user.");
+      if (err) return res.status(500).send("There was a problem registering the user.");
 
       const token = jwt.sign({ id: user._id }, config.secret, {
         expiresIn: 86400 //24h
@@ -31,16 +31,16 @@ router.get('/me', (req, res) => {
 
   const token = req.headers['x-access-token'];
 
-  if (!token) res.status(401).send({ auth: false, message: 'No token provided.' });
+  if (!token) return res.status(401).send({ auth: false, message: 'No token provided.' });
 
   jwt.verify(token, config.secret, (err, decoded) => {
 
-    if (err) res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
+    if (err) return res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
 
     User.findById(decoded.id, { password: 0 }, (err, user) => {
 
-      if (err) res.status(500).send('There was a problem finding the user.');
-      if (!user) res.status(404).send('No user found.');
+      if (err) return res.status(500).send('There was a problem finding the user.');
+      if (!user) return res.status(404).send('No user found.');
 
       res.status(200).send(user);
     })
@@ -48,19 +48,22 @@ router.get('/me', (req, res) => {
 });
 
 router.post('/login', (req, res) => {
-  User.findOne({ email: req.body.email }, (err, user) => {
-    if (err) res.status(500).send('Error on the server.');
-    if (!user) res.status(404).send('User not found.');
-
+  User.findOne({ email: req.body.email }, function (err, user) {
+    if (err) return res.status(500).send('Error on the server.');
+    if (!user) return res.status(404).send('No user found.');
+    console.log(user)
     const passwordIsValid = bcrypt.compareSync(req.body.password, user.password);
-
-    if (!passwordIsValid) res.status(401).send({ auth: false, token: null });
+    if (!passwordIsValid) return res.status(401).send({ auth: false, token: null });
 
     const token = jwt.sign({ id: user._id }, config.secret, {
-      expiresIn: 86400 //24h
+      expiresIn: 86400 // 24h
     });
     res.status(200).send({ auth: true, token: token });
   });
 });
+
+router.get('/logout', (req, res) => {
+  res.status(200).send({ auth: false, token: null })
+})
 
 module.exports = router;
